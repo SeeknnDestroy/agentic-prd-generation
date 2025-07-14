@@ -13,7 +13,7 @@
     - **Agentic Workflow:** Implement a multi-step process: Outline Generation → Web Research → Draft Creation → Self-Critique → Revision Loop.
     - **Framework Implementation:**
       - **Phase A:** Build the core workflow using only official `google-genai` and `openai` Python clients.
-      - **Phase B:** Re-implement the workflow in separate, parallel modules using `openai-agents`, `CrewAI`, `smol-agents`, and `AutoGen` for comparison.
+      - **Phase B:** Re-implement the workflow in separate, parallel modules using `openai-agents`, `CrewAI`, `smolagents`, `AutoGen`, `LangGraph`, `LangChain`, `LlamaIndex`, and `DSPy` for comparison.
     - **Real-Time UI:** A front-end will display the current step, the full PRD content as it evolves, and a changelog/diff for each revision.
     - **Configuration:** Allow users to select the level of autonomy (e.g., "Full Autonomy" requires no intervention after initial input; "Supervised" prompts for user approval at key stages like outline completion).
 
@@ -38,7 +38,16 @@
 6.  Technology Stack
     - **Backend:** FastAPI, Python 3.11+
     - **LLM Clients:** `openai`, `google-genai`
-    - **Agentic Frameworks:** `openai-agents`, `CrewAI`, `smol-agents`, `AutoGen`
+    - **Agentic Frameworks:**
+      - [openai-agents](https://github.com/openai/openai-agents-python)
+      - [AutoGen](https://github.com/microsoft/autogen)
+      - [CrewAI](https://github.com/joaomdmoura/crewAI)
+      - [DSPy](https://github.com/stanfordnlp/dspy)
+      - [smolagents](https://github.com/huggingface/smolagents)
+      - [LlamaIndex](https://github.com/run-llama/llama_index)
+      - [LangGraph](https://github.com/langchain-ai/langgraph)
+      - [LangChain](https://github.com/langchain-ai/langchain)
+
     - **Front-end:** Streamlit. Its native components for status updates and text display are well-suited for the real-time requirements, offering the fastest path to a minimal, effective UI.
     - **Streaming & State Mgmt:** FastAPI Server-Sent Events (SSE) with a simple in-memory state store for the initial local version.
 
