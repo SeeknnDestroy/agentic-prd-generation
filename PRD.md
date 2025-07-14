@@ -40,6 +40,7 @@
     - **LLM Clients:** `openai`, `google-genai`
     - **Agentic Frameworks:**
       - [openai-agents](https://github.com/openai/openai-agents-python)
+      - [mcp-agent](https://github.com/lastmile-ai/mcp-agent)
       - [AutoGen](https://github.com/microsoft/autogen)
       - [CrewAI](https://github.com/joaomdmoura/crewAI)
       - [DSPy](https://github.com/stanfordnlp/dspy)
