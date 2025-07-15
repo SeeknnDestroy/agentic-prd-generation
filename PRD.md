@@ -1,92 +1,97 @@
-# Project Requirement Document: Agentic PRD Generation
+# Project Requirement Document: Agentic PRD Generation
 
-1.  Executive Summary
-    - This document outlines the requirements for "Agentic PRD Generation" an agentic platform designed to generate high-quality Project Requirement Documents (PRDs). The system will leverage Large Language Models (LLMs) to automate the PRD creation process, from outlining to final revision. It will serve developers and product managers by rapidly translating ideas into structured, actionable plans. A key feature is a real-time front-end that visualizes the agentic workflow, enhancing transparency and user engagement.
+1. **Executive Summary**  
+   - “Agentic PRD Generation” is a platform that automates the creation of high‑quality PRDs **and, in Phase 2, the accompanying Technical Specification** through an agentic loop (outline → draft → critique → revise). A real‑time front‑end visualises progress, helping developers and product managers turn ideas into structured, actionable plans quickly.
 
-2.  Success Metrics & Evaluation
-    - **Primary Metric 1: PRD Quality.** The generated PRD must score at least 4/5 on a rubric evaluating clarity, completeness, and coherence, as judged by a sample group of target users.
-    - **Primary Metric 2: User Satisfaction.** Achieve a Net Promoter Score (NPS) of 40+ or a Customer Satisfaction (CSAT) score of 80% among early adopters, focusing on the real-time update feature.
-    - **Secondary Metric: Framework Insights.** The comparative implementation in Phase B will produce a qualitative report on the strengths and weaknesses of each agentic framework for this specific task.
+2. **Success Metrics & Evaluation**  
+   - **PRD Quality** – average rubric score ≥ 4/5 (clarity, completeness, coherence).  
+   - **User Satisfaction** – CSAT ≥ 80 % or NPS ≥ 40 among pilot users.  
+   - **Framework Insights** – qualitative comparison report produced in Phase B.  
+   - **Tech Spec Completeness (Phase 2)** – generated spec passes an internal checklist (architecture, APIs, risks) with ≥ 90 % coverage.
 
-3.  Functional Scope
-    - **User Input:** Accept a high-level project idea as initial text input.
-    - **Agentic Workflow:** Implement a multi-step process: Outline Generation → Web Research → Draft Creation → Self-Critique → Revision Loop.
-    - **Framework Implementation:**
-      - **Phase A:** Build the core workflow using only official `google-genai` and `openai` Python clients.
-      - **Phase B:** Re-implement the workflow in separate, parallel modules using `openai-agents`, `CrewAI`, `smolagents`, `AutoGen`, `LangGraph`, `LangChain`, `LlamaIndex`, and `DSPy` for comparison.
-    - **Real-Time UI:** A front-end will display the current step, the full PRD content as it evolves, and a changelog/diff for each revision.
-    - **Configuration:** Allow users to select the level of autonomy (e.g., "Full Autonomy" requires no intervention after initial input; "Supervised" prompts for user approval at key stages like outline completion).
+3. **Functional Scope**  
+   - **Input** – single high‑level project idea.  
+   - **Agentic Workflow** – Outline → (optional) Research → Draft → Critique/Revise → **Generate Tech Spec**.  
+   - **Framework Implementation**  
+     - **Phase A (Required):** vanilla `openai` & `google-generativeai` clients.  
+     - **Phase B (Optional/Pluggable):** `openai‑agents`, `CrewAI`, `AutoGen`, `smolagents`. Others (LangGraph, LangChain, LlamaIndex, DSPy) may be added after MVP.  
+   - **Real‑Time UI** – display current step, full up‑to‑date PRD, diff history, and a **“Generate Tech Spec”** button.  
+   - **Autonomy Levels** – Full vs. Supervised (user approvals at checkpoints).
 
-4.  Non-Functional Requirements
-    - **Performance:** PRD generation for a standard project should complete in under 5 minutes.
-    - **Reliability:** The system must be resilient to transient API failures from LLM providers, implementing retry logic.
-    - **Usability:** The front-end must be intuitive, requiring no documentation for a user to start their first PRD.
-    - **Extensibility:** The architecture must allow for new agentic frameworks to be added in the future with minimal refactoring.
+4. **Non‑Functional Requirements**  
+   - **Performance** – end‑to‑end PRD generation ≤ 5 min on a standard project idea.  
+   - **Reliability** – retry logic on LLM API errors; graceful degradation.  
+   - **Usability** – intuitive UI, zero onboarding docs required.  
+   - **Extensibility** – add new framework adapters with minimal refactor.
 
-5.  Solution Architecture
+5. **Solution Architecture**
 
-    **5.1 Phase A – Vanilla LLM Clients**
-    - A central FastAPI application will orchestrate the agentic workflow.
-    - A state manager (e.g., a simple in-memory dictionary or a Redis instance) will hold the current PRD state.
-    - Each step (outline, draft, critique) will be a Python function that calls the OpenAI or Google GENAI APIs and updates the state.
-    - Server-Sent Events (SSE) will be used to stream state changes to the front-end.
+   **5.1 Phase A — Vanilla Clients**  
+   - FastAPI orchestrator.  
+   - State in Redis (local dev fallback: in‑memory dict).  
+   - Each agentic step is a Python coroutine calling OpenAI / Google APIs.  
+   - Streaming via **Server‑Sent Events (SSE)**; `/stop` endpoint lets the UI cancel a run.
 
-    **5.2 Phase B – Framework Modules Comparison**
-    - Each framework (`CrewAI`, `AutoGen`, etc.) will be implemented in its own isolated Python module.
-    - A factory or strategy pattern will be used in the FastAPI backend to select and run the chosen framework's workflow, while maintaining the same state management and streaming interface as Phase A.
+   **5.2 Phase B — Framework Adapters**  
+   - One module per framework (`agents/crewai_adapter.py`, etc.).  
+   - Strategy pattern selects the adapter; shared state & streaming layer remain untouched.
 
-6.  Technology Stack
-    - **Backend:** FastAPI, Python 3.11+
-    - **LLM Clients:** `openai`, `google-genai`
-    - **Agentic Frameworks:**
-      - [openai-agents](https://github.com/openai/openai-agents-python)
-      - [mcp-agent](https://github.com/lastmile-ai/mcp-agent)
-      - [AutoGen](https://github.com/microsoft/autogen)
-      - [CrewAI](https://github.com/joaomdmoura/crewAI)
-      - [DSPy](https://github.com/stanfordnlp/dspy)
-      - [smolagents](https://github.com/huggingface/smolagents)
-      - [LlamaIndex](https://github.com/run-llama/llama_index)
-      - [LangGraph](https://github.com/langchain-ai/langgraph)
-      - [LangChain](https://github.com/langchain-ai/langchain)
+6. **Technology Stack**
 
-    - **Front-end:** Streamlit. Its native components for status updates and text display are well-suited for the real-time requirements, offering the fastest path to a minimal, effective UI.
-    - **Streaming & State Mgmt:** FastAPI Server-Sent Events (SSE) with a simple in-memory state store for the initial local version.
+   | Category | Required | Optional / Experimental |
+   |----------|----------|-------------------------|
+   | **Backend** | FastAPI (≥0.110), Python 3.11+ | – |
+   | **LLM Clients** | `openai`, `google-generativeai` | – |
+   | **Agentic Frameworks** | – | `openai‑agents`, `CrewAI`, `AutoGen`, `smolagents`, … |
+   | **Front‑end** | Streamlit (fastest to PoC) | Future React/Next.js port |
+   | **State / Streaming** | Redis + SSE | WebSocket upgrade if bidirectional control needed |
 
-7.  Agentic Workflow Spec
-    1.  **Outline:** An agent generates a PRD outline based on the user's input. Exits when the structure matches the required template.
-    2.  **Research (Optional):** An agent performs targeted web searches to gather data for ambiguous sections. Tool: `web_search`. Exits after collecting sufficient information or hitting a time limit.
-    3.  **Draft:** An agent populates the outline to create the first PRD draft. Exits when all sections are filled.
-    4.  **Critique & Revise Loop:** A critique agent reviews the draft against acceptance criteria (e.g., clarity, guardrails). A revision agent implements the suggested changes. The loop continues until the critique agent finds no further issues.
-    - **Guardrails:** Implement input/output filtering to prevent harmful content generation. Ensure relevance by checking if the generated content deviates from the initial project scope. Provide a "stop" button for the user to halt the process at any time.
+7. **Agentic Workflow Spec**
 
-8.  UI Wireframe Outline
-    - **Single-Page Application:**
-      - **Input Area (Top):** A text box for the initial project idea and a "Generate PRD" button.
-      - **Configuration Panel (Sidebar):** Radio buttons to select the autonomy level and the desired framework (Phase A/B).
-      - **Status Display (Main Content Area):** Shows the current active step (e.g., "Status: Drafting...").
-      - **PRD Display (Main Content Area):** A formatted text area showing the latest version of the PRD, updated in real-time.
-      - **Changelog (Main Content Area):** A collapsible section showing a diff of changes between the last revision and the current one.
+   1. **Outline** – generate structured headings; exit when template matched.  
+   2. **Research (Optional)** – targeted web search for ambiguous sections; exit on time or confidence threshold.  
+   3. **Draft** – populate all sections.  
+   4. **Critique & Revise Loop** – critique agent checks clarity/guardrails → revision agent fixes; repeat until no issues.  
+   5. **Generate Tech Spec** – new agent consumes final PRD JSON, outputs architecture, APIs, risks.  
+   - **Guardrails** – relevance checks, harmful‑content filter, user “stop” control.
 
-9.  MVP Milestones & Timeline
-    - **Week 1:** Setup FastAPI backend with SSE streaming and a basic Streamlit front-end. Implement Phase A workflow with mock LLM calls.
-    - **Week 2:** Integrate actual `openai` and `google-genai` clients into the Phase A workflow.
-    - **Week 3:** Build the first comparative module for Phase B (e.g., `CrewAI`).
-    - **Week 4:** Build the remaining Phase B modules and finalize the UI for comparison and real-time updates.
+8. **UI Wireframe Outline**
 
-10. Risks & Mitigations
-    - **Risk: Inconsistent LLM Output.** LLMs may produce varied or low-quality results.
-        - **Mitigation:** Implement a strong critique/revision loop and use temperature settings to control creativity.
-    - **Risk: Scope Creep.** The comparison of many frameworks could delay the project.
-        - **Mitigation:** Strictly time-box the implementation for each framework in Phase B.
-    - **Risk: Complex State Management.** Real-time state synchronization can become complex.
-        - **Mitigation:** Start with a simple in-memory store and SSE. Avoid more complex solutions like WebSockets or dedicated state libraries unless proven necessary.
+   - **Input Bar** – project idea, “Generate PRD” button.  
+   - **Sidebar** – autonomy level radio buttons; framework selector.  
+   - **Main Panel**  
+     - **Status Banner** – current step (e.g., “Drafting…”).  
+     - **Live PRD View** – markdown rendering auto‑refreshes.  
+     - **Diff / Changelog** – collapsible.  
+     - **Tech Spec Tab** (appears after PRD approval) – live stream of the spec.  
+     - **Generate Tech Spec** button.
 
-11. Acceptance-Test Checklist
-    - [ ] User can submit a project idea and receive a complete PRD.
-    - [ ] The front-end displays the current workflow step in real-time.
-    - [ ] The full PRD document is visible and updates after each revision.
-    - [ ] A diff is shown for every revision.
-    - [ ] User can select between Phase A and at least two Phase B frameworks.
-    - [ ] The generated PRD passes the quality rubric (Score >= 4/5).
-    - [ ] The autonomy level setting correctly modifies the workflow (e.g., pauses for approval).
+9. **MVP Milestones & Timeline**
 
+   | Week | Deliverable |
+   |------|-------------|
+   | 1 | Repo scaffolding, FastAPI + Streamlit hello‑world, SSE pipeline mocked |
+   | 2 | Vanilla workflow with real OpenAI & Google clients |
+   | 3 | Live PRD diff viewer |
+   | 4 | First framework adapter (CrewAI) |
+   | 5 | Tech Spec generator + UI tab; decide whether to add more adapters |
+
+10. **Risks & Mitigations**
+
+   | Risk | Mitigation |
+   |------|------------|
+   | Inconsistent LLM output | Deterministic prompts, critique loop, temperature tuning |
+   | Scope creep from many frameworks | Limit Phase B to 1–2 adapters for MVP |
+   | State sync complexity | Start with Redis pub/sub; monitor latency before adding WebSockets |
+   | API cost overruns | Cache repeated calls, batch generations during research |
+
+11. **Acceptance‑Test Checklist**
+
+   - [ ] Submit idea → receive complete PRD.  
+   - [ ] UI streams current workflow step in real time.  
+   - [ ] PRD view updates after each revision; diff displayed.  
+   - [ ] User can choose Phase A or a Phase B adapter.  
+   - [ ] “Generate Tech Spec” button produces a spec streamed to UI.  
+   - [ ] PRD passes quality rubric (≥ 4/5).  
+   - [ ] Tech Spec covers architecture, APIs, risks (≥ 90 % checklist).  
+   - [ ] Autonomy level setting correctly pauses for approvals.
