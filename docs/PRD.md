@@ -29,7 +29,7 @@
    **5.1 Phase A — Vanilla Clients**  
    - FastAPI orchestrator.  
    - State in Redis (local dev fallback: in‑memory dict).  
-   - Each agentic step is a Python coroutine calling OpenAI / Google APIs.  
+   - Each agentic step is a **pure async function** that transforms an immutable `PRDState`; an async functional pipeline composes these steps end‑to‑end.
    - Streaming via **Server‑Sent Events (SSE)**; `/stop` endpoint lets the UI cancel a run.
 
    **5.2 Phase B — Framework Adapters**  
