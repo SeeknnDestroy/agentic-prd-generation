@@ -1,10 +1,10 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
-import pytest
 from fastapi.testclient import TestClient
+import pytest
 
 from backend.main import app
 
@@ -27,4 +27,4 @@ def client() -> TestClient:
 async def async_client() -> AsyncGenerator[TestClient, None]:
     """Async FastAPI test client."""
     async with TestClient(app) as client:
-        yield client 
+        yield client

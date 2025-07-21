@@ -119,6 +119,8 @@ exclude = ["tests*"]
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -137,11 +139,11 @@ ignore = [
     "C901",  # too complex
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*" = ["S101", "ARG", "FBT"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["backend", "frontend", "agents"]
 force-sort-within-sections = true
 

@@ -1,6 +1,5 @@
 """Unit tests for health endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -21,4 +20,4 @@ def test_root_endpoint(client: TestClient) -> None:
     assert "message" in data
     assert "version" in data
     assert "docs" in data
-    assert data["version"] == "0.1.0" 
+    assert data["version"] == "0.1.0"

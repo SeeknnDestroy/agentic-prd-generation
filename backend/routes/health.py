@@ -18,4 +18,4 @@ async def root() -> dict[str, str]:
         "message": "Agentic PRD Generation API",
         "version": "0.1.0",
         "docs": "/docs",
-    } 
+    }
