@@ -4,7 +4,7 @@ These models define the shape of data used throughout the application,
 ensuring type safety and clear contracts between components.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -27,7 +27,7 @@ class PRDState(BaseModel, frozen=True):
         None, description="The unified diff from the previous revision."
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when this state was created (UTC).",
     )
 

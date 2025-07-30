@@ -1,8 +1,11 @@
 """Unit tests for the generation API endpoints."""
 import uuid
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+
+from backend.models import PRDState
 
 
 def is_valid_uuid(val: str) -> bool:
@@ -14,19 +17,31 @@ def is_valid_uuid(val: str) -> bool:
         return False
 
 
-def test_generate_prd_success(client: TestClient) -> None:
+@patch("backend.routes.generation.state_store")
+def test_generate_prd_success(mock_state_store, client: TestClient) -> None:
     """
-    Test that the /generate_prd endpoint returns a 201 status and a valid
-    run_id for a correct request.
+    Test that the /generate_prd endpoint returns a 201 status, a valid
+    run_id, and correctly saves the initial state.
     """
-    response = client.post(
-        "/api/v1/generate_prd",
-        json={"idea": "A new project management tool"},
-    )
+    idea = "A new project management tool"
+    response = client.post("/api/v1/generate_prd", json={"idea": idea})
+
     assert response.status_code == 201
     data = response.json()
     assert "run_id" in data
-    assert is_valid_uuid(data["run_id"])
+    run_id = data["run_id"]
+    assert is_valid_uuid(run_id)
+
+    # Verify that the state store's save method was called once
+    mock_state_store.save.assert_called_once()
+    # Get the state object that was passed to the save method
+    saved_state = mock_state_store.save.call_args[0][0]
+
+    assert isinstance(saved_state, PRDState)
+    assert saved_state.run_id == run_id
+    assert saved_state.step == "Outline"
+    assert saved_state.revision == 0
+    assert f"PRD for {idea}" in saved_state.content
 
 
 def test_generate_prd_with_all_params(client: TestClient) -> None:
