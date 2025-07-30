@@ -1,9 +1,10 @@
 """Unit tests for the generation API endpoints."""
-import uuid
-from unittest.mock import patch
 
-import pytest
+from unittest.mock import patch
+import uuid
+
 from fastapi.testclient import TestClient
+import pytest
 
 from backend.models import PRDState
 

@@ -61,4 +61,4 @@ services:
     command: streamlit run frontend/app.py --server.address 0.0.0.0 --server.port 8501
 
 volumes:
-  redis_data: 
+  redis_data:

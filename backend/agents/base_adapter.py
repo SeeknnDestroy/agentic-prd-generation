@@ -4,6 +4,7 @@ This ensures that any agent implementation, whether a vanilla client or a
 framework-based one (like CrewAI), can be used interchangeably by the
 pipeline runner.
 """
+
 from typing import Protocol
 
 

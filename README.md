@@ -1,11 +1,11 @@
 # 🛠️ Agentic‑PRD‑Generation
 
-> **Status — pre‑alpha / planning phase**  
+> **Status — pre‑alpha / planning phase**
 > We are currently drafting the Product Requirements Document (PRD) and have not committed any source code yet. Follow the roadmap below for upcoming milestones.
 
 ## 📖 What is this project?
 
-An AI‑powered platform that **iteratively generates Project Requirement Documents (PRDs) _and_ the follow‑up Technical Specification (Tech Spec)** through an agentic workflow.  
+An AI‑powered platform that **iteratively generates Project Requirement Documents (PRDs) _and_ the follow‑up Technical Specification (Tech Spec)** through an agentic workflow.
 The goal is to compare vanilla LLM clients (OpenAI & Google GenAI) with popular agent frameworks (CrewAI, AutoGen, etc.) while visualising every step—outline, draft, critique, revision—in real time.
 
 ## ✨ Planned core features (MVP)
@@ -22,11 +22,11 @@ The goal is to compare vanilla LLM clients (OpenAI & Google GenAI) with popula
 
 ## 🗺️ Roadmap
 
-1. **Docs** – finalise PRD → get stakeholder sign‑off.  
-2. **Scaffolding** – repo structure, CI, basic FastAPI + Streamlit “hello world”.  
-3. **Phase A** – implement vanilla LLM workflow.  
-4. **Phase B** – implement first framework adapter (CrewAI).  
-5. **Tech Spec generator** – agent that converts the final PRD into a design doc.  
+1. **Docs** – finalise PRD → get stakeholder sign‑off.
+2. **Scaffolding** – repo structure, CI, basic FastAPI + Streamlit “hello world”.
+3. **Phase A** – implement vanilla LLM workflow.
+4. **Phase B** – implement first framework adapter (CrewAI).
+5. **Tech Spec generator** – agent that converts the final PRD into a design doc.
 6. Additional framework adapters & comparison report.
 
 *Timeline details live inside the PRD.*
@@ -45,7 +45,7 @@ docs/        # PRD.md, future Tech\_Spec.md, diagrams
 
 ## 🤝 Contributing
 
-We welcome issues and discussions even before code lands.  
+We welcome issues and discussions even before code lands.
 A `CONTRIBUTING.md` guide will be added once the initial scaffolding is ready.
 
 ## 📜 License

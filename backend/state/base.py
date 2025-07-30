@@ -1,4 +1,5 @@
 """Defines the protocol for state management stores."""
+
 from typing import Protocol
 
 from backend.models import PRDState

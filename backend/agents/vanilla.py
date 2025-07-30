@@ -1,6 +1,7 @@
 """
 Vanilla adapter implementation using official OpenAI and Google clients.
 """
+
 from backend.agents.base_adapter import BaseAdapter
 
 

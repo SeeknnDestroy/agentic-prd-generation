@@ -8,8 +8,8 @@ and configuration for the Agentic PRD Generation platform.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes.health import router as health_router
 from backend.routes.generation import router as generation_router
+from backend.routes.health import router as health_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -31,9 +31,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health_router, prefix="", tags=["health"])
-app.include_router(
-    generation_router, prefix="/api/v1", tags=["generation"]
-)
+app.include_router(generation_router, prefix="/api/v1", tags=["generation"])
 
 
 if __name__ == "__main__":

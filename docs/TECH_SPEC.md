@@ -4,15 +4,14 @@
 ---
 
 ## 1  Purpose & Scope
-This document describes **how** we will implement the platform defined in [`docs/PRD.md`](PRD.md).  
+This document describes **how** we will implement the platform defined in [`docs/PRD.md`](PRD.md).
 It translates the *what/why* from the PRD into concrete architecture, APIs, data models, tooling, and quality attributes so any engineer can start coding with minimal ambiguity.
 
 ---
 
 ## 2  High‑Level Architecture
 
-```
-
+```mermaid
 ┌─────────────────────────────────────────────┐
 │                  Front‑end                  │
 │  Streamlit UI                               │
@@ -35,8 +34,7 @@ It translates the *what/why* from the PRD into concrete architecture, APIs, data
 ┌──────────┴──────────┐   ┌┴────────────┐
 │ OpenAI client (vA)  │   │ Google‑GenAI│
 └─────────────────────┘   └─────────────┘
-
-````
+```
 
 *A PNG/SVG version will be committed to `docs/diagrams/architecture_v1.png`.*
 
@@ -73,12 +71,12 @@ It translates the *what/why* from the PRD into concrete architecture, APIs, data
 ```python
 class PRDState(BaseModel, frozen=True):
     run_id: str
-    step: Literal["Outline","Research","Draft","Critique","Revise","Complete"]
-    content: str            # full markdown
+    step: Literal["Outline", "Research", "Draft", "Critique", "Revise", "Complete"]
+    content: str  # full markdown
     revision: int
-    diff: str | None        # unified diff vs. previous rev
+    diff: str | None  # unified diff vs. previous rev
     created_at: datetime
-````
+```
 
 *Redis key:* `prd:{run_id}`
 *TTL:* 7 days (configurable).
@@ -89,6 +87,7 @@ class PRDState(BaseModel, frozen=True):
 
 ```python
 from typing import Protocol
+
 
 class BaseAdapter(Protocol):
     async def call_llm(self, prompt: str) -> str: ...
