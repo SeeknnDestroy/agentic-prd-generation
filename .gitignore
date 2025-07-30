@@ -139,3 +139,6 @@ redis-data/
 # Temporary files
 tmp/
 temp/
+
+# Security Reports
+bandit-report.json
