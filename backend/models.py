@@ -30,3 +30,25 @@ class PRDState(BaseModel, frozen=True):
         default_factory=datetime.utcnow,
         description="Timestamp when this state was created (UTC).",
     )
+
+
+class GeneratePRDRequest(BaseModel):
+    """
+    Defines the request payload for initiating a PRD generation run.
+    """
+
+    idea: str = Field(..., description="The high-level project idea.", min_length=1)
+    autonomy_level: Literal["Full", "Supervised"] = Field(
+        "Full", description="The level of autonomy for the agentic workflow."
+    )
+    adapter: Literal["vanilla_openai", "vanilla_google", "crewai"] = Field(
+        "vanilla_openai", description="The agent adapter to use for the run."
+    )
+
+
+class GeneratePRDResponse(BaseModel):
+    """
+    Defines the response payload after successfully initiating a PRD run.
+    """
+
+    run_id: str = Field(..., description="The unique identifier for the new run.")
