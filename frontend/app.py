@@ -105,9 +105,7 @@ def start_generation() -> None:
     except httpx.RequestError as e:
         st.error(f"Could not connect to backend: {e}")
     except httpx.HTTPStatusError as e:
-        st.error(
-            f"Error from backend: {e.response.status_code} - " f"{e.response.text}"
-        )
+        st.error(f"Error from backend: {e.response.status_code} - {e.response.text}")
 
 
 def listen_for_updates() -> None:
