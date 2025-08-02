@@ -24,8 +24,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - pydantic>=2.6.0
-          - types-redis
-          - types-requests
         args: [--ignore-missing-imports]
 
   - repo: https://github.com/pycqa/bandit
