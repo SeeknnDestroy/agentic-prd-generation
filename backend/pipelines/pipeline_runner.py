@@ -1,5 +1,6 @@
 """Functional async pipeline for running the agentic workflow."""
 
+import asyncio
 from collections.abc import Awaitable, Callable
 import traceback
 
@@ -16,6 +17,9 @@ from backend.pipelines.prompts import (
 from backend.services.streamer import StreamerService
 from backend.state.base import StateStore
 
+MAX_REVISIONS = 3
+APPROVAL_PHRASE = "No issues found."
+
 
 def create_diff(text1: str, text2: str) -> str:
     """Generates a unified diff between two texts."""
@@ -30,7 +34,6 @@ async def outline_step(
 ) -> PRDState:
     """Generate the outline for the PRD."""
     print("Running outline step...")
-    # The initial content is the project idea.
     idea = current_state.content.replace("# PRD for ", "").replace(
         "\n\n*Initial state.*", ""
     )
@@ -67,63 +70,64 @@ async def draft_step(
     return new_state
 
 
-async def critique_step(
-    current_state: PRDState, state_store: StateStore, adapter: BaseAdapter
+async def critique_and_revise_loop(
+    current_state: PRDState,
+    state_store: StateStore,
+    adapter: BaseAdapter,
+    streamer: StreamerService | None,
 ) -> PRDState:
-    """Critique the PRD draft."""
-    print("Running critique step...")
-    prompt = CRITIQUE_PROMPT.format(draft=current_state.content)
-    critique: str = await adapter.call_llm(prompt)
+    """Run the critique and revise loop until the PRD is approved."""
+    for i in range(MAX_REVISIONS):
+        print(f"Running critique step (Revision {i + 1}/{MAX_REVISIONS})...")
+        critique_prompt = CRITIQUE_PROMPT.format(draft=current_state.content)
+        critique: str = await adapter.call_llm(critique_prompt)
 
-    # The critique is appended to the content for the revise step.
-    # This is a temporary state that is not meant to be final.
-    content_with_critique = (
-        f"{current_state.content}\n\n---\n\n## Critique\n\n{critique}"
-    )
+        if APPROVAL_PHRASE in critique:
+            print("PRD approved. Exiting revision loop.")
+            break
 
-    new_state = PRDState(
-        run_id=current_state.run_id,
-        step="Revise",
-        content=content_with_critique,
-        revision=current_state.revision + 1,
-        diff=create_diff(current_state.content, content_with_critique),
-    )
-    await state_store.save(new_state)
-    return new_state
+        content_with_critique = (
+            f"{current_state.content}\n\n---\n\n## Critique\n\n{critique}"
+        )
+        critique_state = PRDState(
+            run_id=current_state.run_id,
+            step="Critique",
+            content=content_with_critique,
+            revision=current_state.revision + 1,
+            diff=create_diff(current_state.content, content_with_critique),
+        )
+        await state_store.save(critique_state)
+        if streamer:
+            await streamer.push_data(critique_state.run_id, critique_state.model_dump())
 
+        print(f"Running revise step (Revision {i + 1}/{MAX_REVISIONS})...")
+        revise_prompt = REVISE_PROMPT.format(
+            draft=current_state.content, critique=critique
+        )
+        new_content: str = await adapter.call_llm(revise_prompt)
 
-async def revise_step(
-    current_state: PRDState, state_store: StateStore, adapter: BaseAdapter
-) -> PRDState:
-    """Revise the PRD based on critique."""
-    print("Running revise step...")
-    # The content from the critique step includes both the draft and the critique.
-    # We need to extract them to format the prompt correctly.
-    parts = current_state.content.split("\n\n---\n\n## Critique\n\n")
-    if len(parts) != 2:
-        # Fallback if the critique format is unexpected
-        draft = current_state.content
-        critique = "No critique found."
-    else:
-        draft, critique = parts
+        revised_state = PRDState(
+            run_id=current_state.run_id,
+            step="Critique",  # Stay in critique for the next loop iteration
+            content=new_content,
+            revision=critique_state.revision + 1,
+            diff=create_diff(critique_state.content, new_content),
+        )
+        await state_store.save(revised_state)
+        if streamer:
+            await streamer.push_data(revised_state.run_id, revised_state.model_dump())
+        current_state = revised_state
+        await asyncio.sleep(1)  # Small delay between revisions
 
-    prompt = REVISE_PROMPT.format(draft=draft, critique=critique)
-    new_content: str = await adapter.call_llm(prompt)
-
-    new_state = PRDState(
-        run_id=current_state.run_id,
-        step="Complete",
-        content=new_content,
-        revision=current_state.revision + 1,
-        diff=create_diff(current_state.content, new_content),
-    )
-    await state_store.save(new_state)
-    return new_state
+    return current_state
 
 
 PIPELINE_STAGES: list[
-    Callable[[PRDState, StateStore, BaseAdapter], Awaitable[PRDState]]
-] = [outline_step, draft_step, critique_step, revise_step]
+    Callable[
+        [PRDState, StateStore, BaseAdapter],
+        Awaitable[PRDState],
+    ]
+] = [outline_step, draft_step]
 
 
 async def run_pipeline(
@@ -134,40 +138,46 @@ async def run_pipeline(
 ) -> None:
     """
     Runs the full agentic pipeline from outline to completion.
-
-    Args:
-        initial_state: The starting state of the PRD.
-        state_store: The state manager to save progress.
-        adapter: The agent adapter for LLM calls.
-        streamer: The service to stream updates to the frontend.
     """
     current_state = initial_state
-
-    # Push the initial state to the stream so the UI shows something immediately.
     if streamer:
         await streamer.push_data(current_state.run_id, current_state.model_dump())
 
-    for step_func in PIPELINE_STAGES:
-        try:
+    try:
+        for step_func in PIPELINE_STAGES:
             current_state = await step_func(current_state, state_store, adapter)
-            # Stream the updated state after each step.
             if streamer:
                 await streamer.push_data(
                     current_state.run_id, current_state.model_dump()
                 )
-        except Exception:
-            error_details = str(traceback.format_exc())
-            print(f"Error during pipeline step {step_func.__name__}: {error_details}")
-            error_state = PRDState(
-                run_id=current_state.run_id,
-                step="Error",
-                content=f"{current_state.content}\n\n---\n\n**Pipeline Error:**\n`{error_details}`",
-                revision=current_state.revision + 1,
-                diff=f"Error in step: {step_func.__name__}",
-            )
-            await state_store.save(error_state)
-            if streamer:
-                await streamer.push_data(error_state.run_id, error_state.model_dump())
-            break  # Stop the pipeline on error
+
+        current_state = await critique_and_revise_loop(
+            current_state, state_store, adapter, streamer
+        )
+
+        final_state = PRDState(
+            run_id=current_state.run_id,
+            step="Complete",
+            content=current_state.content,
+            revision=current_state.revision + 1,
+            diff=create_diff(current_state.content, current_state.content),
+        )
+        await state_store.save(final_state)
+        if streamer:
+            await streamer.push_data(final_state.run_id, final_state.model_dump())
+
+    except Exception:
+        error_details = str(traceback.format_exc())
+        print(f"Error during pipeline: {error_details}")
+        error_state = PRDState(
+            run_id=current_state.run_id,
+            step="Error",
+            content=f"{current_state.content}\n\n---\n\n**Pipeline Error:**\n`{error_details}`",
+            revision=current_state.revision + 1,
+            diff="Error occurred.",
+        )
+        await state_store.save(error_state)
+        if streamer:
+            await streamer.push_data(error_state.run_id, error_state.model_dump())
 
     print("Pipeline complete.")

@@ -69,7 +69,8 @@ realism. Identify any ambiguities, contradictions, or missing information.
 - For each point, specify the section of the PRD it refers to.
 - Focus on actionable feedback that can be used to improve the document.
 - Be ruthless but fair. The goal is to make the PRD as strong as possible.
-- If you find no issues, simply respond with "No issues found."
+- **If the PRD is well-structured, clear, and comprehensive with no obvious issues, you MUST respond with the exact phrase "No issues found."**
+- Do not add any other text or formatting if you are approving the document.
 """
 
 REVISE_PROMPT = """
