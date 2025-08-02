@@ -1,6 +1,6 @@
 """API routes for PRD and Tech Spec generation workflows."""
 
-from typing import Annotated, cast, Literal
+from typing import Annotated, Literal, cast
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -22,6 +22,7 @@ router = APIRouter()
 # dependencies like database connections or external service clients. It makes
 # the application more modular, easier to test (by overriding dependencies),
 # and aligns with FastAPI best practices.
+
 
 # These functions act as dependency providers.
 def get_state_store() -> StateStore:
@@ -45,7 +46,7 @@ def get_agent_adapter(request: GeneratePRDRequest) -> BaseAdapter:
     adapter_type = request.adapter
     if adapter_type in ("vanilla_openai", "vanilla_google"):
         vanilla_adapter_type = cast(
-            Literal["vanilla_openai", "vanilla_google"], adapter_type
+            "Literal['vanilla_openai', 'vanilla_google']", adapter_type
         )
         try:
             return VanillaAdapter(adapter_type=vanilla_adapter_type)
