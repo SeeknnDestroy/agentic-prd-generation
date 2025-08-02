@@ -87,7 +87,7 @@ async def generate_prd(
         content=f"# PRD for {request.idea}\n\n*Initial state.*",
         revision=0,
     )
-    state_store.save(initial_state)
+    await state_store.save(initial_state)
 
     # Kick off the actual generation pipeline in the background.
     background_tasks.add_task(

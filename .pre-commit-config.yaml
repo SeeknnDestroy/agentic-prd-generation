@@ -27,7 +27,6 @@ repos:
           - types-redis
           - types-requests
         args: [--ignore-missing-imports]
-        exclude: ^(tests/|frontend/)
 
   - repo: https://github.com/pycqa/bandit
     rev: 1.7.8

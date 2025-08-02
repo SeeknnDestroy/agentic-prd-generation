@@ -175,6 +175,7 @@ module = [
     "crewai.*",
     "autogen.*",
     "smolagents.*",
+    "diff_match_patch",
 ]
 ignore_missing_imports = true
 

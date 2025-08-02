@@ -44,7 +44,7 @@ async def outline_step(
         revision=current_state.revision + 1,
         diff=create_diff(current_state.content, new_content),
     )
-    state_store.save(new_state)
+    await state_store.save(new_state)
     return new_state
 
 
@@ -63,7 +63,7 @@ async def draft_step(
         revision=current_state.revision + 1,
         diff=create_diff(current_state.content, new_content),
     )
-    state_store.save(new_state)
+    await state_store.save(new_state)
     return new_state
 
 
@@ -88,7 +88,7 @@ async def critique_step(
         revision=current_state.revision + 1,
         diff=create_diff(current_state.content, content_with_critique),
     )
-    state_store.save(new_state)
+    await state_store.save(new_state)
     return new_state
 
 
@@ -117,7 +117,7 @@ async def revise_step(
         revision=current_state.revision + 1,
         diff=create_diff(current_state.content, new_content),
     )
-    state_store.save(new_state)
+    await state_store.save(new_state)
     return new_state
 
 
@@ -165,7 +165,7 @@ async def run_pipeline(
                 revision=current_state.revision + 1,
                 diff=f"Error in step: {step_func.__name__}",
             )
-            state_store.save(error_state)
+            await state_store.save(error_state)
             if streamer:
                 await streamer.push_data(error_state.run_id, error_state.model_dump())
             break  # Stop the pipeline on error

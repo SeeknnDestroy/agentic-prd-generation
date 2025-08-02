@@ -123,7 +123,7 @@ def listen_for_updates() -> None:
             for sse in event_source.iter_sse():
                 if sse.event == "message":
                     update_state(json.loads(sse.data))
-                    st.experimental_rerun()  # Rerun to update the UI
+                    st.rerun()  # Rerun to update the UI
     except httpx.HTTPStatusError as e:
         st.error(f"Error connecting to stream: {e.response.status_code}")
         st.session_state.status = "Error"

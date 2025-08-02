@@ -17,6 +17,8 @@ class VanillaAdapter(BaseAdapter):
     Implements the BaseAdapter protocol using direct calls to LLM APIs.
     """
 
+    client: AsyncOpenAI | genai.GenerativeModel
+
     def __init__(
         self,
         adapter_type: Literal["vanilla_openai", "vanilla_google"] = "vanilla_openai",
@@ -49,21 +51,21 @@ class VanillaAdapter(BaseAdapter):
                 if not isinstance(self.client, AsyncOpenAI):
                     raise TypeError("Client is not an AsyncOpenAI instance.")
 
-                response = await self.client.chat.completions.create(
+                openai_response = await self.client.chat.completions.create(
                     model=self.model_name,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=2048,
                 )
-                openai_content: str = response.choices[0].message.content or ""
+                openai_content: str = openai_response.choices[0].message.content or ""
                 return openai_content
 
             elif self.adapter_type == "vanilla_google":
                 if not isinstance(self.client, genai.GenerativeModel):
                     raise TypeError("Client is not a GenerativeModel instance.")
 
-                response = await self.client.generate_content_async(prompt)
-                google_content: str = response.text
+                google_response = await self.client.generate_content_async(prompt)
+                google_content: str = google_response.text
                 return google_content
 
             else:
