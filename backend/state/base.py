@@ -10,7 +10,7 @@ class StateStore(Protocol):
     Protocol for a key-value store that persists PRDState.
     """
 
-    def save(self, state: PRDState) -> None:
+    async def save(self, state: PRDState) -> None:
         """
         Saves the PRD state.
 
@@ -20,7 +20,7 @@ class StateStore(Protocol):
         """
         ...
 
-    def get(self, run_id: str) -> PRDState | None:
+    async def get(self, run_id: str) -> PRDState | None:
         """
         Retrieves a PRD state by its run ID.
 

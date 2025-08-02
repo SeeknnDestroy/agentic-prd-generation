@@ -19,10 +19,10 @@ class InMemoryStore(StateStore):
     def __init__(self) -> None:
         self._store = {}
 
-    def save(self, state: PRDState) -> None:
+    async def save(self, state: PRDState) -> None:
         """Saves the PRD state to the in-memory dictionary."""
         self._store[state.run_id] = state
 
-    def get(self, run_id: str) -> PRDState | None:
+    async def get(self, run_id: str) -> PRDState | None:
         """Retrieves a PRD state from the in-memory dictionary."""
         return self._store.get(run_id)
