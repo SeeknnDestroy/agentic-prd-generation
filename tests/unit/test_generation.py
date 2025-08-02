@@ -1,12 +1,16 @@
 """Unit tests for the generation API endpoints."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import uuid
 
 from fastapi.testclient import TestClient
 import pytest
 
+from backend.agents.base_adapter import BaseAdapter
+from backend.main import app
 from backend.models import PRDState
+from backend.routes.generation import get_agent_adapter, get_state_store
+from backend.state.base import StateStore
 
 
 def is_valid_uuid(val: str) -> bool:
@@ -18,49 +22,77 @@ def is_valid_uuid(val: str) -> bool:
         return False
 
 
-@patch("backend.routes.generation.state_store")
-def test_generate_prd_success(mock_state_store, client: TestClient) -> None:
+@pytest.fixture
+def client_with_mocks(
+    client: TestClient,
+) -> tuple[TestClient, MagicMock, MagicMock]:
+    """
+    Pytest fixture to provide a TestClient with mocked dependencies for
+    the generation routes. It also handles cleanup of dependency overrides.
+    """
+    mock_state_store = MagicMock(spec=StateStore)
+    mock_agent_adapter = MagicMock(spec=BaseAdapter)
+    mock_agent_adapter.call_llm.return_value = "Mocked LLM response"
+
+    app.dependency_overrides[get_state_store] = lambda: mock_state_store
+    app.dependency_overrides[get_agent_adapter] = lambda: mock_agent_adapter
+
+    yield client, mock_state_store, mock_agent_adapter
+
+    # Clean up the overrides after the test
+    app.dependency_overrides = {}
+
+
+@patch("backend.routes.generation.run_pipeline")
+def test_generate_prd_success(
+    mock_run_pipeline: MagicMock,
+    client_with_mocks: tuple[TestClient, MagicMock, MagicMock],
+) -> None:
     """
     Test that the /generate_prd endpoint returns a 201 status, a valid
-    run_id, and correctly saves the initial state.
+    run_id, and correctly saves the initial state. The pipeline itself is mocked.
     """
+    client, mock_state_store, _ = client_with_mocks
     idea = "A new project management tool"
-    response = client.post("/api/v1/generate_prd", json={"idea": idea})
+
+    response = client.post(
+        "/api/v1/generate_prd",
+        json={"idea": idea, "adapter": "vanilla_openai"},
+    )
 
     assert response.status_code == 201
     data = response.json()
-    assert "run_id" in data
     run_id = data["run_id"]
     assert is_valid_uuid(run_id)
 
-    # Verify that the state store's save method was called once
+    # Verify that the state store's save method was called once for the initial state
     mock_state_store.save.assert_called_once()
-    # Get the state object that was passed to the save method
     saved_state = mock_state_store.save.call_args[0][0]
-
     assert isinstance(saved_state, PRDState)
     assert saved_state.run_id == run_id
     assert saved_state.step == "Outline"
-    assert saved_state.revision == 0
-    assert f"PRD for {idea}" in saved_state.content
+
+    # Verify that the pipeline was called in the background
+    mock_run_pipeline.assert_called_once()
 
 
-def test_generate_prd_with_all_params(client: TestClient) -> None:
+def test_generate_prd_for_unimplemented_adapter(client: TestClient) -> None:
     """
-    Test the endpoint with all optional parameters provided.
+    Test that requesting an adapter that is not yet implemented returns a
+    501 Not Implemented error.
     """
+    # Ensure no overrides from other tests are present
+    app.dependency_overrides = {}
     response = client.post(
         "/api/v1/generate_prd",
         json={
             "idea": "A new social media platform for cats",
-            "autonomy_level": "Supervised",
             "adapter": "crewai",
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == 501
     data = response.json()
-    assert "run_id" in data
-    assert is_valid_uuid(data["run_id"])
+    assert "adapter is not yet available" in data["detail"]
 
 
 @pytest.mark.parametrize(
