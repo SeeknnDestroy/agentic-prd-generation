@@ -5,7 +5,6 @@ Vanilla adapter implementation using official OpenAI and Google clients.
 import asyncio
 import os
 import traceback
-from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 import google.generativeai as genai
@@ -66,7 +65,9 @@ class VanillaAdapter(BaseAdapter):
                 if not isinstance(self.client, genai.GenerativeModel):
                     raise TypeError("Client is not a GenerativeModel instance.")
 
-                print(">>> [Google Adapter] About to call generate_content in thread...")
+                print(
+                    ">>> [Google Adapter] About to call generate_content in thread..."
+                )
                 # Run the synchronous SDK call in a separate thread
                 google_response = await asyncio.to_thread(
                     self.client.generate_content, prompt
@@ -74,40 +75,6 @@ class VanillaAdapter(BaseAdapter):
                 print(">>> [Google Adapter] Call to generate_content completed.")
                 google_content: str = google_response.text
                 return google_content
-
-            else:
-                # This should be unreachable due to the __init__ check
-                raise ValueError(f"Unsupported adapter type: {self.adapter_type}")
-
-        async def call_llm(self, prompt: str) -> str:
-        """
-        Calls the underlying language model with a given prompt.
-        """
-        try:
-            if self.adapter_type == "vanilla_openai":
-                if not isinstance(self.client, AsyncOpenAI):
-                    raise TypeError("Client is not an AsyncOpenAI instance.")
-
-                openai_response = await self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
-                    max_tokens=2048,
-                )
-                openai_content: str = openai_response.choices[0].message.content or ""
-                return openai_content
-
-            elif self.adapter_type == "vanilla_google":
-                if not isinstance(self.client, genai.GenerativeModel):
-                    raise TypeError("Client is not a GenerativeModel instance.")
-
-                with ThreadPoolExecutor() as executor:
-                    loop = asyncio.get_running_loop()
-                    google_response = await loop.run_in_executor(
-                        executor, self.client.generate_content, prompt
-                    )
-                    google_content: str = google_response.text
-                    return google_content
 
             else:
                 # This should be unreachable due to the __init__ check
