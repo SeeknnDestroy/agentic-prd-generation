@@ -1,5 +1,6 @@
 """Unit tests for the generation API endpoints."""
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 import uuid
 
@@ -25,7 +26,7 @@ def is_valid_uuid(val: str) -> bool:
 @pytest.fixture
 def client_with_mocks(
     client: TestClient,
-) -> tuple[TestClient, MagicMock, MagicMock]:
+) -> Generator[tuple[TestClient, MagicMock, MagicMock], None, None]:
     """
     Pytest fixture to provide a TestClient with mocked dependencies for
     the generation routes. It also handles cleanup of dependency overrides.

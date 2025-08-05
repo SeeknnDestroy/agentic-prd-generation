@@ -2,6 +2,7 @@
 Vanilla adapter implementation using official OpenAI and Google clients.
 """
 
+import asyncio
 import os
 import traceback
 from typing import Literal
@@ -27,13 +28,13 @@ class VanillaAdapter(BaseAdapter):
         self.adapter_type = adapter_type
 
         if self.adapter_type == "vanilla_openai":
-            self.model_name = model_name or "gpt-4o"
+            self.model_name = model_name or "gpt-4.1-mini"
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY environment variable not set.")
             self.client = AsyncOpenAI(api_key=api_key)
         elif self.adapter_type == "vanilla_google":
-            self.model_name = model_name or "gemini-1.5-flash"
+            self.model_name = model_name or "gemini-2.5-flash"
             api_key = os.getenv("GOOGLE_API_KEY")
             if not api_key:
                 raise ValueError("GOOGLE_API_KEY environment variable not set.")
@@ -64,7 +65,14 @@ class VanillaAdapter(BaseAdapter):
                 if not isinstance(self.client, genai.GenerativeModel):
                     raise TypeError("Client is not a GenerativeModel instance.")
 
-                google_response = await self.client.generate_content_async(prompt)
+                print(
+                    ">>> [Google Adapter] About to call generate_content in thread..."
+                )
+                # Run the synchronous SDK call in a separate thread
+                google_response = await asyncio.to_thread(
+                    self.client.generate_content, prompt
+                )
+                print(">>> [Google Adapter] Call to generate_content completed.")
                 google_content: str = google_response.text
                 return google_content
 
