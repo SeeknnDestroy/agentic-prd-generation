@@ -6,6 +6,7 @@ generate PRDs and Technical Specifications through an agentic workflow.
 """
 
 import json
+import os
 
 import httpx
 from httpx_sse import connect_sse
@@ -49,7 +50,7 @@ def main() -> None:
         )
         st.text_input(
             "Backend API URL",
-            value="http://localhost:8000",
+            value=os.getenv("BACKEND_URL", "http://localhost:8000"),
             key="api_url",
         )
 
@@ -95,6 +96,7 @@ def start_generation() -> None:
     }
 
     try:
+        print(f"Sending payload to backend: {payload}")  # Diagnostic print
         with httpx.Client() as client:
             response = client.post(f"{api_url}/api/v1/generate_prd", json=payload)
             response.raise_for_status()

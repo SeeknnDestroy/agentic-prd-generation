@@ -5,11 +5,15 @@ This module sets up the FastAPI application with all routes, middleware,
 and configuration for the Agentic PRD Generation platform.
 """
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routes.generation import router as generation_router
 from backend.routes.health import router as health_router
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(
