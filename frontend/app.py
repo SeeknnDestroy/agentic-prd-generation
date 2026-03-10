@@ -159,15 +159,13 @@ def listen_for_updates(
                     st.session_state.stream_active = False
                     return
     except httpx.HTTPStatusError as exc:
-        st.session_state.status = "Error"
-        st.session_state.error = (
+        mark_stream_error(
             f"Stream connection failed with status {exc.response.status_code}."
         )
     except httpx.RequestError as exc:
-        st.session_state.error = f"Stream request failed: {exc}"
+        mark_stream_error(f"Stream request failed: {exc}")
     except Exception as exc:  # pragma: no cover - defensive UI fallback
-        st.session_state.status = "Error"
-        st.session_state.error = f"Stream disconnected unexpectedly: {exc}"
+        mark_stream_error(f"Stream disconnected unexpectedly: {exc}")
     finally:
         st.session_state.stream_active = False
         render_state(
@@ -185,6 +183,12 @@ def update_state(data: dict[str, Any]) -> None:
     st.session_state.prd_content = ui_state["prd_content"]
     st.session_state.diff = ui_state["diff"]
     st.session_state.error = ui_state["error"]
+
+
+def mark_stream_error(message: str) -> None:
+    """Put the UI in a terminal error state after stream failures."""
+    st.session_state.status = "Error"
+    st.session_state.error = message
 
 
 def build_generation_payload(idea: str, adapter: str) -> dict[str, str]:

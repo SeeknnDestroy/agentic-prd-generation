@@ -20,6 +20,7 @@ logger = structlog.get_logger(__name__)
 
 MAX_REVISIONS = 3
 APPROVAL_PHRASE = "No issues found."
+AUTO_DIFF = object()
 
 
 def create_diff(text1: str, text2: str) -> str:
@@ -173,17 +174,20 @@ def _next_state(
     *,
     step: str,
     content: str,
-    diff: str | None = None,
+    diff: str | None | object = AUTO_DIFF,
     error: str | None = None,
 ) -> PRDState:
     """Build the next immutable PRD state."""
+    next_diff = (
+        create_diff(current_state.content, content) if diff is AUTO_DIFF else diff
+    )
     return PRDState(
         run_id=current_state.run_id,
         idea=current_state.idea,
         step=step,
         content=content,
         revision=current_state.revision + 1,
-        diff=create_diff(current_state.content, content) if diff is None else diff,
+        diff=next_diff,
         error=error,
     )
 
