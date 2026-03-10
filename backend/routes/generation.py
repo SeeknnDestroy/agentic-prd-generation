@@ -20,6 +20,7 @@ from backend.services.streamer import StreamerService
 from backend.state.base import StateStore
 
 router = APIRouter()
+TERMINAL_STEPS = {"Complete", "Error"}
 
 
 @router.post(
@@ -83,7 +84,10 @@ async def stream_prd(
     async def event_publisher() -> AsyncIterator[dict[str, str]]:
         last_revision = latest_state.revision
         try:
-            yield _to_sse_message(latest_state.to_event_payload())
+            latest_payload = latest_state.to_event_payload()
+            yield _to_sse_message(latest_payload)
+            if latest_payload["step"] in TERMINAL_STEPS:
+                return
             while True:
                 payload = await queue.get()
                 revision = int(payload.get("revision", last_revision))
@@ -91,6 +95,8 @@ async def stream_prd(
                     continue
                 last_revision = max(last_revision, revision)
                 yield _to_sse_message(payload)
+                if payload["step"] in TERMINAL_STEPS:
+                    return
         finally:
             await streamer_service.remove_subscriber(run_id, queue)
 
