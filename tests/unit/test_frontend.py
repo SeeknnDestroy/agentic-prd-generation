@@ -1,11 +1,14 @@
 """Unit tests for frontend helper functions."""
 
+import streamlit as st
+
 from frontend.app import (
     DEFAULT_PRD_CONTENT,
     build_generation_payload,
     build_stream_url,
     coerce_stream_state,
     is_terminal_step,
+    mark_stream_error,
 )
 
 
@@ -37,3 +40,14 @@ def test_coerce_stream_state_defaults() -> None:
         "diff": "",
         "error": None,
     }
+
+
+def test_mark_stream_error_sets_terminal_state() -> None:
+    """Transport failures should move the UI to a terminal error state."""
+    st.session_state.status = "Draft"
+    st.session_state.error = None
+
+    mark_stream_error("backend unavailable")
+
+    assert st.session_state.status == "Error"
+    assert st.session_state.error == "backend unavailable"

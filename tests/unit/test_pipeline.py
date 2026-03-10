@@ -128,3 +128,46 @@ def test_create_diff_returns_patch_text() -> None:
     """Diff generation returns a patch when text changes."""
     diff = create_diff("before", "after")
     assert "@@" in diff
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_terminal_states_preserve_none_diff() -> None:
+    """Terminal states that explicitly disable diffs should keep `diff=None`."""
+    success_store = RecordingStore()
+    success_adapter = SequenceAdapter(
+        [
+            "# Outline\n\n- Goals",
+            "# Draft\n\nDetailed PRD",
+            "No issues found.",
+        ]
+    )
+    initial_state = PRDState(
+        run_id="run-3",
+        idea="Diff sentinel test",
+        step="Outline",
+        content="# PRD for Diff sentinel test\n\n_Starting outline generation..._",
+        revision=0,
+        diff=None,
+        error=None,
+    )
+
+    await run_pipeline(
+        initial_state=initial_state,
+        state_store=success_store,
+        adapter=success_adapter,
+        streamer=None,
+    )
+
+    assert success_store.history[-1].step == "Complete"
+    assert success_store.history[-1].diff is None
+
+    error_store = RecordingStore()
+    await run_pipeline(
+        initial_state=initial_state.model_copy(update={"run_id": "run-4"}),
+        state_store=error_store,
+        adapter=FailingAdapter(),
+        streamer=None,
+    )
+
+    assert error_store.history[-1].step == "Error"
+    assert error_store.history[-1].diff is None
