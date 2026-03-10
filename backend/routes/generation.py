@@ -91,9 +91,9 @@ async def stream_prd(
             while True:
                 payload = await queue.get()
                 revision = int(payload.get("revision", last_revision))
-                if revision <= last_revision and payload.get("step") != "Error":
+                if revision <= last_revision:
                     continue
-                last_revision = max(last_revision, revision)
+                last_revision = revision
                 yield _to_sse_message(payload)
                 if payload["step"] in TERMINAL_STEPS:
                     return

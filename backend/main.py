@@ -45,19 +45,19 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+DEFAULT_SETTINGS = AppSettings()
+app = create_app(DEFAULT_SETTINGS)
 
 
 def cli(argv: list[str] | None = None) -> int:
     """Run the API server from the installed console script."""
-    settings = AppSettings()
     parser = argparse.ArgumentParser(description="Run the Agentic PRD API server.")
-    parser.add_argument("--host", default=settings.api_host)
-    parser.add_argument("--port", type=int, default=settings.api_port)
+    parser.add_argument("--host", default=DEFAULT_SETTINGS.api_host)
+    parser.add_argument("--port", type=int, default=DEFAULT_SETTINGS.api_port)
     parser.add_argument(
         "--reload",
         action=argparse.BooleanOptionalAction,
-        default=settings.environment == "development",
+        default=DEFAULT_SETTINGS.environment == "development",
     )
     args = parser.parse_args(argv)
     uvicorn.run(
