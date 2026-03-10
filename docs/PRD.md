@@ -1,97 +1,45 @@
-# Project Requirement Document: Agentic PRD Generation
+# Product Requirements Document
 
-1. **Executive Summary**
-   - “Agentic PRD Generation” is a platform that automates the creation of high‑quality PRDs **and, in Phase 2, the accompanying Technical Specification** through an agentic loop (outline → draft → critique → revise). A real‑time front‑end visualises progress, helping developers and product managers turn ideas into structured, actionable plans quickly.
+## Summary
 
-2. **Success Metrics & Evaluation**
-   - **PRD Quality** – average rubric score ≥ 4/5 (clarity, completeness, coherence).
-   - **User Satisfaction** – CSAT ≥ 80 % or NPS ≥ 40 among pilot users.
-   - **Framework Insights** – qualitative comparison report produced in Phase B.
-   - **Tech Spec Completeness (Phase 2)** – generated spec passes an internal checklist (architecture, APIs, risks) with ≥ 90 % coverage.
+Agentic PRD Generation is an MVP that turns a single project idea into a structured PRD. The product emphasizes reliability and transparency over breadth: only implemented adapters and behaviors are exposed.
 
-3. **Functional Scope**
-   - **Input** – single high‑level project idea.
-   - **Agentic Workflow** – Outline → (optional) Research → Draft → Critique/Revise → **Generate Tech Spec**.
-   - **Framework Implementation**
-     - **Phase A (Required):** vanilla `openai` & `google-generativeai` clients.
-     - **Phase B (Optional/Pluggable):** `openai‑agents`, `CrewAI`, `AutoGen`, `smolagents`. Others (LangGraph, LangChain, LlamaIndex, DSPy) may be added after MVP.
-   - **Real‑Time UI** – display current step, full up‑to‑date PRD, diff history, and a **“Generate Tech Spec”** button.
-   - **Autonomy Levels** – Full vs. Supervised (user approvals at checkpoints).
+## Goals
 
-4. **Non‑Functional Requirements**
-   - **Performance** – end‑to‑end PRD generation ≤ 5 min on a standard project idea.
-   - **Reliability** – retry logic on LLM API errors; graceful degradation.
-   - **Usability** – intuitive UI, zero onboarding docs required.
-   - **Extensibility** – add new framework adapters with minimal refactor.
+- Produce a usable PRD draft with iterative outline, draft, critique, and revise stages.
+- Stream the latest run state to the UI in real time.
+- Keep local development and testing simple by working with either Redis or an in-memory fallback.
 
-5. **Solution Architecture**
+## In Scope
 
-   **5.1 Phase A — Vanilla Clients**
-   - FastAPI orchestrator.
-   - State in Redis (local dev fallback: in‑memory dict).
-   - Each agentic step is a **pure async function** that transforms an immutable `PRDState`; an async functional pipeline composes these steps end‑to‑end.
-   - Streaming via **Server‑Sent Events (SSE)**; `/stop` endpoint lets the UI cancel a run.
+- One `POST /api/v1/generate_prd` endpoint that accepts `idea` and `adapter`
+- One `GET /api/v1/stream/{run_id}` endpoint that replays the latest state and then streams future updates
+- Streamlit UI for entering an idea, selecting an implemented adapter, and following a live PRD run
+- Implemented adapters only: `vanilla_openai` and `vanilla_google`
 
-   **5.2 Phase B — Framework Adapters**
-   - One module per framework (`agents/crewai_adapter.py`, etc.).
-   - Strategy pattern selects the adapter; shared state & streaming layer remain untouched.
+## Out of Scope
 
-6. **Technology Stack**
+- Framework comparison adapters
+- Human-in-the-loop approval checkpoints
+- Stop or cancel controls
+- Tech spec generation
 
-   | Category | Required | Optional / Experimental |
-   |----------|----------|-------------------------|
-   | **Backend** | FastAPI (≥0.110), Python 3.11+ | – |
-   | **LLM Clients** | `openai`, `google-generativeai` | – |
-   | **Agentic Frameworks** | – | `openai‑agents`, `CrewAI`, `AutoGen`, `smolagents`, … |
-   | **Front‑end** | Streamlit (fastest to PoC) | Future React/Next.js port |
-   | **State / Streaming** | Redis + SSE | WebSocket upgrade if bidirectional control needed |
+## Functional Requirements
 
-7. **Agentic Workflow Spec**
+- A new run must persist an initial state immediately.
+- Each pipeline step must save a new immutable state with a truthful workflow step.
+- Provider failures must end the run with `step="Error"` and a separate `error` field.
+- SSE subscribers must receive the latest persisted state even if they connect late.
 
-   1. **Outline** – generate structured headings; exit when template matched.
-   2. **Research (Optional)** – targeted web search for ambiguous sections; exit on time or confidence threshold.
-   3. **Draft** – populate all sections.
-   4. **Critique & Revise Loop** – critique agent checks clarity/guardrails → revision agent fixes; repeat until no issues.
-   5. **Generate Tech Spec** – new agent consumes final PRD JSON, outputs architecture, APIs, risks.
-   - **Guardrails** – relevance checks, harmful‑content filter, user “stop” control.
+## Non-Functional Requirements
 
-8. **UI Wireframe Outline**
+- Local development must work without Redis by falling back to in-memory storage.
+- Health and readiness checks must reflect the actual backend state honestly.
+- The repo must keep passing `ruff`, `mypy`, and `pytest`.
 
-   - **Input Bar** – project idea, “Generate PRD” button.
-   - **Sidebar** – autonomy level radio buttons; framework selector.
-   - **Main Panel**
-     - **Status Banner** – current step (e.g., “Drafting…”).
-     - **Live PRD View** – markdown rendering auto‑refreshes.
-     - **Diff / Changelog** – collapsible.
-     - **Tech Spec Tab** (appears after PRD approval) – live stream of the spec.
-     - **Generate Tech Spec** button.
+## Acceptance Criteria
 
-9. **MVP Milestones & Timeline**
-
-   | Week | Deliverable |
-   |------|-------------|
-   | 1 | Repo scaffolding, FastAPI + Streamlit hello‑world, SSE pipeline mocked |
-   | 2 | Vanilla workflow with real OpenAI & Google clients |
-   | 3 | Live PRD diff viewer |
-   | 4 | First framework adapter (CrewAI) |
-   | 5 | Tech Spec generator + UI tab; decide whether to add more adapters |
-
-10. **Risks & Mitigations**
-
-   | Risk | Mitigation |
-   |------|------------|
-   | Inconsistent LLM output | Deterministic prompts, critique loop, temperature tuning |
-   | Scope creep from many frameworks | Limit Phase B to 1–2 adapters for MVP |
-   | State sync complexity | Start with Redis pub/sub; monitor latency before adding WebSockets |
-   | API cost overruns | Cache repeated calls, batch generations during research |
-
-11. **Acceptance‑Test Checklist**
-
-   - [ ] Submit idea → receive complete PRD.
-   - [ ] UI streams current workflow step in real time.
-   - [ ] PRD view updates after each revision; diff displayed.
-   - [ ] User can choose Phase A or a Phase B adapter.
-   - [ ] “Generate Tech Spec” button produces a spec streamed to UI.
-   - [ ] PRD passes quality rubric (≥ 4/5).
-   - [ ] Tech Spec covers architecture, APIs, risks (≥ 90 % checklist).
-   - [ ] Autonomy level setting correctly pauses for approvals.
+- Submitting an idea returns a `run_id`.
+- Refreshing or reconnecting to an active run replays the latest known state.
+- Failed provider calls do not produce fake successful completions.
+- The frontend only exposes shipped adapters and shipped behaviors.

@@ -1,49 +1,73 @@
-"""
-Main FastAPI application entry point.
+"""Main FastAPI application entry point."""
 
-This module sets up the FastAPI application with all routes, middleware,
-and configuration for the Agentic PRD Generation platform.
-"""
+import argparse
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 from backend.routes.generation import router as generation_router
 from backend.routes.health import router as health_router
+from backend.runtime import build_runtime, close_runtime
+from backend.settings import AppSettings
 
-# Load environment variables from .env file
-load_dotenv()
 
-# Create FastAPI app
-app = FastAPI(
-    title="Agentic PRD Generation API",
-    description="AI-powered platform for iterative PRD and Technical Specification generation",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
+def create_app(settings: AppSettings | None = None) -> FastAPI:
+    """Create a configured FastAPI application."""
+    app_settings = settings or AppSettings()
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        runtime = await build_runtime(app_settings)
+        app.state.runtime = runtime
+        yield
+        await close_runtime(runtime)
 
-# Include routers
-app.include_router(health_router, prefix="", tags=["health"])
-app.include_router(generation_router, prefix="/api/v1", tags=["generation"])
+    app = FastAPI(
+        title=app_settings.app_name,
+        description="AI-powered platform for iterative PRD generation.",
+        version=app_settings.app_version,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=app_settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(health_router, prefix="", tags=["health"])
+    app.include_router(generation_router, prefix="/api/v1", tags=["generation"])
+    return app
+
+
+app = create_app()
+
+
+def cli(argv: list[str] | None = None) -> int:
+    """Run the API server from the installed console script."""
+    settings = AppSettings()
+    parser = argparse.ArgumentParser(description="Run the Agentic PRD API server.")
+    parser.add_argument("--host", default=settings.api_host)
+    parser.add_argument("--port", type=int, default=settings.api_port)
+    parser.add_argument(
+        "--reload",
+        action=argparse.BooleanOptionalAction,
+        default=settings.environment == "development",
+    )
+    args = parser.parse_args(argv)
+    uvicorn.run(
+        "backend.main:app",
+        host=args.host,  # nosec B104
+        port=args.port,
+        reload=args.reload,
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "backend.main:app",
-        host="0.0.0.0",  # nosec B104
-        port=8000,
-        reload=True,
-    )
+    raise SystemExit(cli())

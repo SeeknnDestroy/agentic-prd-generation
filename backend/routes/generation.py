@@ -1,67 +1,25 @@
 """API routes for PRD and Tech Spec generation workflows."""
 
-from typing import Annotated, Literal, cast
+from collections.abc import AsyncIterator
+import json
+from typing import Annotated
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sse_starlette.sse import EventSourceResponse
 
 from backend.agents.base_adapter import BaseAdapter
-from backend.agents.vanilla import VanillaAdapter
+from backend.dependencies import (
+    get_agent_adapter,
+    get_state_store,
+    get_streamer_service,
+)
 from backend.models import GeneratePRDRequest, GeneratePRDResponse, PRDState
 from backend.pipelines.pipeline_runner import run_pipeline
 from backend.services.streamer import StreamerService
 from backend.state.base import StateStore
-from backend.state.redis_store import RedisStore
 
 router = APIRouter()
-
-
-# Aether's Rationale:
-# Using FastAPI's dependency injection system is the standard for managing
-# dependencies like database connections or external service clients. It makes
-# the application more modular, easier to test (by overriding dependencies),
-# and aligns with FastAPI best practices.
-
-
-# These functions act as dependency providers.
-def get_state_store() -> StateStore:
-    """Dependency to get the application's state store."""
-    try:
-        return RedisStore()
-    except ConnectionError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Could not connect to Redis: {e}",
-        ) from e
-
-
-def get_streamer_service() -> StreamerService:
-    """Dependency to get the streamer service."""
-    return StreamerService()
-
-
-def get_agent_adapter(request: GeneratePRDRequest) -> BaseAdapter:
-    """Selects and instantiates the correct agent adapter based on the request."""
-    adapter_type = request.adapter
-    if adapter_type in ("vanilla_openai", "vanilla_google"):
-        vanilla_adapter_type = cast(
-            "Literal['vanilla_openai', 'vanilla_google']", adapter_type
-        )
-        try:
-            return VanillaAdapter(adapter_type=vanilla_adapter_type)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            ) from e
-    if adapter_type == "crewai":
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="The 'crewai' adapter is not yet available.",
-        )
-    # This should be unreachable due to Pydantic validation
-    raise ValueError(f"Unknown adapter type: {adapter_type}")
 
 
 @router.post(
@@ -83,9 +41,11 @@ async def generate_prd(
     run_id = str(uuid.uuid4())
     initial_state = PRDState(
         run_id=run_id,
+        idea=request.idea,
         step="Outline",
-        content=f"# PRD for {request.idea}\n\n*Initial state.*",
+        content=f"# PRD for {request.idea}\n\n_Starting outline generation..._",
         revision=0,
+        error=None,
     )
     await state_store.save(initial_state)
 
@@ -107,12 +67,36 @@ async def generate_prd(
 )
 async def stream_prd(
     run_id: str,
+    state_store: Annotated[StateStore, Depends(get_state_store)],
     streamer_service: Annotated[StreamerService, Depends(get_streamer_service)],
 ) -> EventSourceResponse:
     """Establish an SSE connection for the given run ID."""
-    # Aether's Rationale:
-    # The streamer service needs to be a singleton or managed by a robust
-    # dependency injection system to handle multiple concurrent streams.
-    # For this project's scope, instantiating it per-request is acceptable,
-    # but in a larger-scale app, we would manage its lifecycle carefully.
-    return await streamer_service.create_event_stream(run_id)
+    queue = await streamer_service.add_subscriber(run_id)
+    latest_state = await state_store.get(run_id)
+    if latest_state is None:
+        await streamer_service.remove_subscriber(run_id, queue)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No PRD run found for run_id '{run_id}'.",
+        )
+
+    async def event_publisher() -> AsyncIterator[dict[str, str]]:
+        last_revision = latest_state.revision
+        try:
+            yield _to_sse_message(latest_state.to_event_payload())
+            while True:
+                payload = await queue.get()
+                revision = int(payload.get("revision", last_revision))
+                if revision <= last_revision and payload.get("step") != "Error":
+                    continue
+                last_revision = max(last_revision, revision)
+                yield _to_sse_message(payload)
+        finally:
+            await streamer_service.remove_subscriber(run_id, queue)
+
+    return EventSourceResponse(event_publisher())
+
+
+def _to_sse_message(payload: dict[str, object]) -> dict[str, str]:
+    """Serialize a state payload into an SSE message."""
+    return {"event": "message", "data": json.dumps(payload)}

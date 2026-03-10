@@ -15,6 +15,7 @@ class InMemoryStore(StateStore):
     """
 
     _store: dict[str, PRDState]
+    backend_name = "memory"
 
     def __init__(self) -> None:
         self._store = {}
@@ -26,3 +27,11 @@ class InMemoryStore(StateStore):
     async def get(self, run_id: str) -> PRDState | None:
         """Retrieves a PRD state from the in-memory dictionary."""
         return self._store.get(run_id)
+
+    async def ping(self) -> bool:
+        """The in-memory store is always ready for the current process."""
+        return True
+
+    async def close(self) -> None:
+        """Release in-memory resources."""
+        self._store.clear()

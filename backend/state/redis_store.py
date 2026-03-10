@@ -1,6 +1,6 @@
 """State manager for reading and writing PRD state to Redis."""
 
-import os
+from inspect import isawaitable
 
 import redis
 import redis.asyncio as aredis
@@ -15,26 +15,18 @@ class RedisStore(StateStore):
     """
 
     _client: aredis.Redis
+    backend_name = "redis"
 
-    def __init__(self, redis_url: str | None = None):
+    def __init__(self, redis_url: str, ttl_seconds: int = 60 * 60 * 24 * 7):
         """
         Initializes the Redis client.
 
         Args:
-            redis_url: The connection URL for Redis. Defaults to the
-                       REDIS_URL environment variable or a local instance.
+            redis_url: The connection URL for Redis.
+            ttl_seconds: The retention period for saved run state.
         """
-        url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        if not url:
-            raise ValueError("Redis URL not provided.")
-        self._client = aredis.from_url(url, decode_responses=True)
-
-    async def connect(self) -> None:
-        """Connects to Redis and pings to check the connection."""
-        try:
-            await self._client.ping()
-        except redis.exceptions.ConnectionError as e:
-            raise ConnectionError("Could not connect to Redis.") from e
+        self._client = aredis.from_url(redis_url, decode_responses=True)
+        self._ttl_seconds = ttl_seconds
 
     def _get_key(self, run_id: str) -> str:
         """Generates the Redis key for a given run ID."""
@@ -47,8 +39,7 @@ class RedisStore(StateStore):
         The state is stored with a TTL of 7 days.
         """
         key = self._get_key(state.run_id)
-        # Pydantic's model_dump_json is used for serialization
-        await self._client.set(key, state.model_dump_json(), ex=60 * 60 * 24 * 7)
+        await self._client.set(key, state.model_dump_json(), ex=self._ttl_seconds)
 
     async def get(self, run_id: str) -> PRDState | None:
         """
@@ -58,5 +49,22 @@ class RedisStore(StateStore):
         data = await self._client.get(key)
         if not data:
             return None
-        # Pydantic's parse_raw is used for deserialization
-        return PRDState.parse_raw(data)
+        return PRDState.model_validate_json(data)
+
+    async def ping(self) -> bool:
+        """Check whether Redis is reachable."""
+        try:
+            return bool(await self._client.ping())
+        except redis.exceptions.RedisError:
+            return False
+
+    async def close(self) -> None:
+        """Close the Redis client cleanly."""
+        async_close = getattr(self._client, "aclose", None)
+        if callable(async_close):
+            await async_close()
+            return
+
+        close_result = self._client.close()
+        if isawaitable(close_result):
+            await close_result

@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentic-prd-generation"
 version = "0.1.0"
-description = "AI-powered platform for iterative PRD and Technical Specification generation"
+description = "AI-powered platform for iterative PRD generation"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "Agentic PRD Generation Team"},
 ]
-keywords = ["ai", "prd", "technical-spec", "agents", "llm"]
+keywords = ["ai", "prd", "product-requirements", "llm"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -32,7 +32,7 @@ dependencies = [
 
     # LLM clients
     "openai>=1.14.0",
-    "google-generativeai>=0.5.0",
+    "google-genai>=1.0.0",
 
     # State management
     "redis[hiredis]>=5.0.0",
@@ -47,7 +47,6 @@ dependencies = [
 
     # Async support
     "httpx>=0.27.0",
-    "aioredis>=2.0.0",
 
     # Utilities
     "python-multipart>=0.0.9",
@@ -65,7 +64,6 @@ dev = [
     # Code quality
     "ruff>=0.3.0",
     "mypy>=1.9.0",
-    "pydantic[mypy]>=2.6.0",
     "pre-commit>=3.6.0",
     "types-redis>=4.6.0",
     "types-requests>=2.31.0",
@@ -79,7 +77,6 @@ dev = [
 
     # Development tools
     "ipython>=8.22.0",
-    "jupyterlab>=4.1.0",
 ]
 
 test = [
@@ -106,10 +103,10 @@ observability = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/agentic-prd-generation"
-Repository = "https://github.com/your-org/agentic-prd-generation"
-Documentation = "https://github.com/your-org/agentic-prd-generation/blob/main/docs/"
-"Bug Tracker" = "https://github.com/your-org/agentic-prd-generation/issues"
+Homepage = "https://github.com/SeeknnDestroy/agentic-prd-generation"
+Repository = "https://github.com/SeeknnDestroy/agentic-prd-generation"
+Documentation = "https://github.com/SeeknnDestroy/agentic-prd-generation/tree/main/docs"
+"Bug Tracker" = "https://github.com/SeeknnDestroy/agentic-prd-generation/issues"
 
 [project.scripts]
 agentic-prd = "backend.main:cli"
@@ -174,6 +171,7 @@ module = [
     "streamlit.*",
     "redis.*",
     "sse_starlette.*",
+    "google.genai.*",
     "crewai.*",
     "autogen.*",
     "smolagents.*",

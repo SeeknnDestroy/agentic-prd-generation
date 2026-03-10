@@ -1,51 +1,76 @@
-# 🛠️ Agentic‑PRD‑Generation
+# Agentic PRD Generation
 
-> **Status — Alpha / Implementation Phase**
-> The project scaffolding is complete, and the core backend logic for the vanilla agent workflow is currently under development.
+Alpha-stage MVP for generating Product Requirements Documents with a small, honest surface area.
 
-## 📖 What is this project?
+## Current Scope
 
-An AI‑powered platform that **iteratively generates Project Requirement Documents (PRDs) _and_ the follow‑up Technical Specification (Tech Spec)** through an agentic workflow.
-The goal is to compare vanilla LLM clients (OpenAI & Google GenAI) with popular agent frameworks (CrewAI, AutoGen, etc.) while visualising every step—outline, draft, critique, revision—in real time.
+- Generate PRDs from a single project idea.
+- Stream state updates from FastAPI to Streamlit over SSE.
+- Use either the OpenAI adapter or the Google GenAI adapter.
+- Persist run state in Redis when available, with automatic fallback to in-memory storage for local development and tests.
 
-## ✨ Core Features (MVP)
+## Not Shipped Yet
 
-| Phase | Feature | Status |
-|-------|---------|----------|
-| **A** | Vanilla workflow using official `openai` and `google-generativeai` Python clients | 🚧 In Progress |
-| **B** | Pluggable adapter modules for frameworks (CrewAI, AutoGen, …) | ⏳ Planned |
-| — | FastAPI backend that streams live updates via SSE | ✅ Implemented |
-| — | Minimal front‑end (Streamlit) showing progress | 🚧 In Progress |
-| — | One‑click **“Generate Tech Spec”** from the approved PRD | ⏳ Planned |
+- Framework comparison adapters such as CrewAI or AutoGen
+- Supervised checkpoints or stop controls
+- Technical specification generation
 
-*See [`docs/PRD.md`](docs/PRD.md) for the full requirements.*
+## Architecture
 
-## 🗺️ Roadmap
+- `backend/`: FastAPI API, runtime setup, adapters, pipeline, and state backends
+- `frontend/`: Streamlit UI for starting runs and following live updates
+- `tests/`: unit and integration coverage for runtime selection, pipeline behavior, streaming, and CLI wiring
 
-1.  **Docs** – ✅ Finalise PRD and Tech Spec.
-2.  **Scaffolding** – ✅ Set up repo structure, CI, and basic FastAPI + Streamlit apps.
-3.  **Phase A** – 🚧 Implement the vanilla LLM workflow, including real LLM calls and connecting the frontend to the backend stream.
-4.  **Phase B** – ⏳ Implement the first framework adapter (e.g., CrewAI).
-5.  **Tech Spec Generator** – ⏳ Build the agent that converts the final PRD into a design doc.
-6.  **Evaluation** – ⏳ Add more framework adapters & generate a comparison report.
+The backend uses lifespan-managed shared resources: `AppSettings`, one `StateStore`, and one `StreamerService` per process.
 
-*Timeline details live inside the PRD.*
+## Quickstart
 
-## 🏗️ Repository Structure
+1. Install dependencies:
 
-```
-backend/     # FastAPI app with routes, services, and agent pipeline
-frontend/    # Streamlit UI application
-agents/      # Shared agent protocols (interfaces)
-docs/        # PRD.md, TECH_SPEC.md, and diagrams
-.github/     # CI workflows and issue templates
+```bash
+pip install -e ".[dev,test]"
 ```
 
-## 🤝 Contributing
+2. Create local configuration:
 
-We welcome issues and discussions.
-A `CONTRIBUTING.md` guide will be added once the core features are stable.
+```bash
+cp .env.example .env
+```
 
-## 📜 License
+3. Add at least one provider key to `.env`.
 
-MIT
+4. Run the backend:
+
+```bash
+agentic-prd --host 0.0.0.0 --port 8000 --reload
+```
+
+5. Run the frontend:
+
+```bash
+streamlit run frontend/app.py --server.port 8501
+```
+
+6. Open `http://localhost:8501`.
+
+## Quality Gates
+
+```bash
+ruff check .
+ruff format --check .
+mypy backend frontend
+pytest
+```
+
+## Docker
+
+Runtime images install only the application package and its runtime dependencies.
+
+```bash
+docker-compose up --build
+```
+
+## Docs
+
+- [`docs/PRD.md`](docs/PRD.md): current MVP product requirements
+- [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md): current architecture and API contract

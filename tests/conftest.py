@@ -1,30 +1,35 @@
 """Pytest configuration and shared fixtures."""
 
-import asyncio
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import Generator
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
-from backend.main import app
+from backend.main import create_app
+from backend.settings import AppSettings
 
 
 @pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    """Create an event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+def test_settings() -> AppSettings:
+    """Stable settings for local tests."""
+    return AppSettings(
+        environment="test",
+        debug=True,
+        state_backend="memory",
+        openai_api_key="test-openai-key",
+        google_api_key="test-google-key",
+    )
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """FastAPI test client."""
-    return TestClient(app)
+def app(test_settings: AppSettings) -> FastAPI:
+    """Create a fresh FastAPI app for each test."""
+    return create_app(test_settings)
 
 
 @pytest.fixture
-async def async_client() -> AsyncGenerator[TestClient, None]:
-    """Async FastAPI test client."""
-    async with TestClient(app) as client:
-        yield client
+def client(app: FastAPI) -> Generator[TestClient, None, None]:
+    """FastAPI test client with lifespan support enabled."""
+    with TestClient(app) as test_client:
+        yield test_client
