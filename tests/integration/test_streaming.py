@@ -24,6 +24,16 @@ async def _read_first_sse_event(
     return cast("dict[str, object]", json.loads(data))
 
 
+async def _stream_is_exhausted(response: EventSourceResponse) -> bool:
+    """Return whether the SSE body iterator terminates after the first event."""
+    iterator = cast("AsyncIterator[dict[str, object]]", response.body_iterator)
+    try:
+        await anext(iterator)
+    except StopAsyncIteration:
+        return True
+    return False
+
+
 @patch("backend.routes.generation.run_pipeline", new_callable=AsyncMock)
 def test_generate_prd_stream_replays_latest_state(
     mock_run_pipeline: AsyncMock,
@@ -78,4 +88,5 @@ def test_stream_replays_terminal_error_state(
 
     assert payload["step"] == "Error"
     assert payload["error"] == "boom"
+    assert asyncio.run(_stream_is_exhausted(stream_response)) is True
     mock_run_pipeline.assert_awaited_once()
