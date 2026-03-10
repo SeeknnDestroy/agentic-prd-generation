@@ -59,6 +59,16 @@ class FailingAdapter(BaseAdapter):
         raise AdapterError("test", "provider blew up")
 
 
+class UnexpectedFailingAdapter(BaseAdapter):
+    """Adapter test double that raises an unexpected runtime error."""
+
+    adapter_type = "test"
+
+    async def call_llm(self, prompt: str) -> str:
+        del prompt
+        raise RuntimeError("unexpected boom")
+
+
 @pytest.mark.asyncio
 async def test_run_pipeline_records_truthful_steps() -> None:
     """A successful run records the expected ordered steps."""
@@ -122,6 +132,33 @@ async def test_run_pipeline_records_terminal_error_state() -> None:
     assert store.history[-1].step == "Error"
     assert store.history[-1].error == "provider blew up"
     assert all(state.step != "Complete" for state in store.history)
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_records_terminal_error_state_for_unexpected_failures() -> (
+    None
+):
+    """Unexpected exceptions should still end the run with an error state."""
+    store = RecordingStore()
+    initial_state = PRDState(
+        run_id="run-unexpected",
+        idea="Unexpected failure",
+        step="Outline",
+        content="# PRD for Unexpected failure\n\n_Starting outline generation..._",
+        revision=0,
+        diff=None,
+        error=None,
+    )
+
+    await run_pipeline(
+        initial_state=initial_state,
+        state_store=store,
+        adapter=UnexpectedFailingAdapter(),
+        streamer=None,
+    )
+
+    assert store.history[-1].step == "Error"
+    assert store.history[-1].error == "Unexpected pipeline error: unexpected boom"
 
 
 def test_create_diff_returns_patch_text() -> None:
