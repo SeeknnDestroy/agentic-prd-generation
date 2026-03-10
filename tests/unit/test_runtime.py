@@ -45,12 +45,20 @@ async def test_runtime_raises_when_redis_is_required(
 ) -> None:
     """Explicit Redis mode should fail fast when Redis is unavailable."""
     settings = AppSettings(state_backend="redis")
+    closed = False
 
     async def ping(self: RedisStore) -> bool:
         del self
         return False
 
+    async def close(self: RedisStore) -> None:
+        del self
+        nonlocal closed
+        closed = True
+
     monkeypatch.setattr(RedisStore, "ping", ping)
+    monkeypatch.setattr(RedisStore, "close", close)
 
     with pytest.raises(RuntimeError, match="Redis was selected explicitly"):
         await _build_state_store(settings)
+    assert closed is True

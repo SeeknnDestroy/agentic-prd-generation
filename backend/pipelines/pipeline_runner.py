@@ -159,14 +159,23 @@ async def run_pipeline(
             provider=exc.provider,
             exc_info=True,
         )
-        error_state = _next_state(
-            current_state,
-            step="Error",
-            content=current_state.content,
-            diff=None,
-            error=str(exc),
+        await _persist_terminal_error(
+            current_state=current_state,
+            state_store=state_store,
+            streamer=streamer,
+            error_message=str(exc),
         )
-        await _persist_state(error_state, state_store, streamer)
+    except Exception as exc:
+        logger.exception(
+            "pipeline_failed_unexpectedly",
+            run_id=current_state.run_id,
+        )
+        await _persist_terminal_error(
+            current_state=current_state,
+            state_store=state_store,
+            streamer=streamer,
+            error_message=f"Unexpected pipeline error: {exc}",
+        )
 
 
 def _next_state(
@@ -201,3 +210,27 @@ async def _persist_state(
     await state_store.save(state)
     if streamer:
         await streamer.publish(state.run_id, state.to_event_payload())
+
+
+async def _persist_terminal_error(
+    *,
+    current_state: PRDState,
+    state_store: StateStore,
+    streamer: StreamerService | None,
+    error_message: str,
+) -> None:
+    """Best-effort persistence for terminal pipeline failures."""
+    error_state = _next_state(
+        current_state,
+        step="Error",
+        content=current_state.content,
+        diff=None,
+        error=error_message,
+    )
+    try:
+        await _persist_state(error_state, state_store, streamer)
+    except Exception:
+        logger.exception(
+            "pipeline_error_persistence_failed",
+            run_id=current_state.run_id,
+        )

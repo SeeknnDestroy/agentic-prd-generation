@@ -56,6 +56,7 @@ async def _build_state_store(settings: AppSettings) -> StateStore:
         return redis_store
 
     if settings.state_backend == "redis":
+        await redis_store.close()
         msg = "Redis was selected explicitly but is not reachable."
         raise RuntimeError(msg)
 
