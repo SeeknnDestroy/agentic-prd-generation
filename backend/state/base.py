@@ -10,6 +10,8 @@ class StateStore(Protocol):
     Protocol for a key-value store that persists PRDState.
     """
 
+    backend_name: str
+
     async def save(self, state: PRDState) -> None:
         """
         Saves the PRD state.
@@ -30,4 +32,12 @@ class StateStore(Protocol):
         Returns:
             The PRD state object if found, otherwise None.
         """
+        ...
+
+    async def ping(self) -> bool:
+        """Return whether the backing store is healthy."""
+        ...
+
+    async def close(self) -> None:
+        """Release any open store resources."""
         ...

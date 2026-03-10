@@ -1,13 +1,12 @@
-"""Pydantic models for the Agentic PRD Generation platform.
-
-These models define the shape of data used throughout the application,
-ensuring type safety and clear contracts between components.
-"""
+"""Pydantic models for the Agentic PRD Generation platform."""
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+WorkflowStep = Literal["Outline", "Draft", "Critique", "Revise", "Complete", "Error"]
+AdapterType = Literal["vanilla_openai", "vanilla_google"]
 
 
 class PRDState(BaseModel, frozen=True):
@@ -18,18 +17,36 @@ class PRDState(BaseModel, frozen=True):
     """
 
     run_id: str = Field(..., description="Unique identifier for the generation run.")
-    step: Literal[
-        "Outline", "Research", "Draft", "Critique", "Revise", "Complete", "Error"
-    ] = Field(..., description="The current step in the agentic workflow.")
+    idea: str = Field(..., description="The original product idea for the run.")
+    step: WorkflowStep = Field(..., description="The current step in the workflow.")
     content: str = Field(..., description="The full Markdown content of the PRD.")
     revision: int = Field(..., description="The revision number, starting from 0.")
     diff: str | None = Field(
         None, description="The unified diff from the previous revision."
     )
+    error: str | None = Field(
+        None,
+        description="Terminal error details when the run ends in an error state.",
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         description="Timestamp when this state was created (UTC).",
     )
+
+    def to_event_payload(self) -> dict[str, Any]:
+        """Return the public SSE payload for this run state."""
+        return self.model_dump(
+            mode="json",
+            include={
+                "run_id",
+                "step",
+                "content",
+                "revision",
+                "diff",
+                "error",
+                "created_at",
+            },
+        )
 
 
 class GeneratePRDRequest(BaseModel):
@@ -38,11 +55,9 @@ class GeneratePRDRequest(BaseModel):
     """
 
     idea: str = Field(..., description="The high-level project idea.", min_length=1)
-    autonomy_level: Literal["Full", "Supervised"] = Field(
-        "Full", description="The level of autonomy for the agentic workflow."
-    )
-    adapter: Literal["vanilla_openai", "vanilla_google", "crewai"] = Field(
-        "vanilla_openai", description="The agent adapter to use for the run."
+    adapter: AdapterType = Field(
+        "vanilla_openai",
+        description="The implemented agent adapter to use for the run.",
     )
 
 

@@ -17,12 +17,14 @@ RUN adduser --disabled-password --gecos '' appuser
 # Set work directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
-COPY pyproject.toml ./
-RUN pip install -e ".[dev]"
+# Copy application metadata and runtime source
+COPY pyproject.toml README.md ./
+COPY backend ./backend
+COPY frontend ./frontend
+COPY agents ./agents
 
-# Copy application code
-COPY . .
+# Install runtime dependencies only
+RUN pip install .
 
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app

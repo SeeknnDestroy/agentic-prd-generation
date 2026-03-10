@@ -140,5 +140,8 @@ redis-data/
 tmp/
 temp/
 
+# Codex project memory
+.codex/
+
 # Security Reports
 bandit-report.json

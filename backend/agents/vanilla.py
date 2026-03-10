@@ -1,16 +1,15 @@
-"""
-Vanilla adapter implementation using official OpenAI and Google clients.
-"""
+"""Vanilla adapter implementation using official OpenAI and Google clients."""
 
 import asyncio
-import os
-import traceback
+from importlib import import_module
+from time import perf_counter
 from typing import Literal
 
-import google.generativeai as genai
-from openai import AsyncOpenAI
+import structlog
 
-from backend.agents.base_adapter import BaseAdapter
+from backend.agents.base_adapter import AdapterError, BaseAdapter
+
+logger = structlog.get_logger(__name__)
 
 
 class VanillaAdapter(BaseAdapter):
@@ -18,28 +17,33 @@ class VanillaAdapter(BaseAdapter):
     Implements the BaseAdapter protocol using direct calls to LLM APIs.
     """
 
-    client: AsyncOpenAI | genai.GenerativeModel
-
     def __init__(
         self,
         adapter_type: Literal["vanilla_openai", "vanilla_google"] = "vanilla_openai",
-        model_name: str | None = None,
-    ):
+        *,
+        openai_api_key: str | None = None,
+        google_api_key: str | None = None,
+        openai_model: str = "gpt-4.1-mini",
+        google_model: str = "gemini-2.5-flash",
+        temperature: float = 0.2,
+        max_output_tokens: int = 4096,
+        request_timeout_seconds: float = 60.0,
+    ) -> None:
         self.adapter_type = adapter_type
+        self.temperature = temperature
+        self.max_output_tokens = max_output_tokens
+        self.request_timeout_seconds = request_timeout_seconds
+        self._openai_api_key = openai_api_key
+        self._google_api_key = google_api_key
 
         if self.adapter_type == "vanilla_openai":
-            self.model_name = model_name or "gpt-4.1-mini"
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
+            self.model_name = openai_model
+            if not self._openai_api_key:
                 raise ValueError("OPENAI_API_KEY environment variable not set.")
-            self.client = AsyncOpenAI(api_key=api_key)
         elif self.adapter_type == "vanilla_google":
-            self.model_name = model_name or "gemini-2.5-flash"
-            api_key = os.getenv("GOOGLE_API_KEY")
-            if not api_key:
+            self.model_name = google_model
+            if not self._google_api_key:
                 raise ValueError("GOOGLE_API_KEY environment variable not set.")
-            genai.configure(api_key=api_key)
-            self.client = genai.GenerativeModel(self.model_name)
         else:
             raise ValueError(f"Unsupported adapter type: {self.adapter_type}")
 
@@ -47,45 +51,88 @@ class VanillaAdapter(BaseAdapter):
         """
         Calls the underlying language model with a given prompt.
         """
+        started_at = perf_counter()
         try:
             if self.adapter_type == "vanilla_openai":
-                if not isinstance(self.client, AsyncOpenAI):
-                    raise TypeError("Client is not an AsyncOpenAI instance.")
-
-                openai_response = await self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
-                    max_tokens=2048,
-                )
-                openai_content: str = openai_response.choices[0].message.content or ""
-                return openai_content
-
-            elif self.adapter_type == "vanilla_google":
-                if not isinstance(self.client, genai.GenerativeModel):
-                    raise TypeError("Client is not a GenerativeModel instance.")
-
-                print(
-                    ">>> [Google Adapter] About to call generate_content in thread..."
-                )
-                # Run the synchronous SDK call in a separate thread
-                google_response = await asyncio.to_thread(
-                    self.client.generate_content, prompt
-                )
-                print(">>> [Google Adapter] Call to generate_content completed.")
-                google_content: str = google_response.text
-                return google_content
-
+                response = await self._call_openai(prompt)
             else:
-                # This should be unreachable due to the __init__ check
-                raise ValueError(f"Unsupported adapter type: {self.adapter_type}")
+                response = await self._call_google(prompt)
 
-        except Exception:
-            # Aether's Rationale:
-            # Catching a broad exception here to handle various API errors
-            # (e.g., network issues, authentication failures, rate limits).
-            # In a production system, this would be replaced with more granular
-            # error handling and logging.
-            error_details: str = str(traceback.format_exc())
-            print(f"Error calling LLM: {error_details}")
-            return f"Error: Could not get a response from the model. Details: {error_details}"
+            logger.info(
+                "llm_call_succeeded",
+                adapter=self.adapter_type,
+                model=self.model_name,
+                duration_seconds=round(perf_counter() - started_at, 3),
+            )
+            return response
+        except AdapterError:
+            logger.warning(
+                "llm_call_failed",
+                adapter=self.adapter_type,
+                model=self.model_name,
+                duration_seconds=round(perf_counter() - started_at, 3),
+                exc_info=True,
+            )
+            raise
+
+    async def _call_openai(self, prompt: str) -> str:
+        """Call the OpenAI Chat Completions API."""
+        try:
+            openai_module = import_module("openai")
+            async_openai_cls = openai_module.AsyncOpenAI
+        except ModuleNotFoundError as exc:
+            raise AdapterError("openai", "The OpenAI SDK is not installed.") from exc
+
+        client = async_openai_cls(
+            api_key=self._openai_api_key,
+            timeout=self.request_timeout_seconds,
+        )
+        try:
+            openai_response = await client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=self.max_output_tokens,
+            )
+            openai_content: str = openai_response.choices[0].message.content or ""
+        except Exception as exc:
+            raise AdapterError("openai", f"OpenAI request failed: {exc}") from exc
+        finally:
+            await client.close()
+
+        if not openai_content.strip():
+            raise AdapterError("openai", "OpenAI returned an empty response.")
+        return openai_content
+
+    async def _call_google(self, prompt: str) -> str:
+        """Call the Google GenAI API using the supported SDK."""
+        try:
+            genai_module = import_module("google.genai")
+            types_module = import_module("google.genai.types")
+        except ModuleNotFoundError as exc:
+            raise AdapterError(
+                "google", "The Google GenAI SDK is not installed."
+            ) from exc
+
+        client = genai_module.Client(api_key=self._google_api_key)
+        try:
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config=types_module.GenerateContentConfig(
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_output_tokens,
+                ),
+            )
+        except Exception as exc:
+            raise AdapterError("google", f"Google request failed: {exc}") from exc
+        finally:
+            close = getattr(client, "close", None)
+            if callable(close):
+                await asyncio.to_thread(close)
+
+        google_content = getattr(response, "text", "") or ""
+        if not google_content.strip():
+            raise AdapterError("google", "Google returned an empty response.")
+        return google_content

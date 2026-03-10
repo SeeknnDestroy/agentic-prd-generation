@@ -1,9 +1,8 @@
 """Service for streaming state updates to the frontend via SSE."""
 
 import asyncio
+from collections import defaultdict
 from typing import Any
-
-from sse_starlette.sse import EventSourceResponse
 
 
 class StreamerService:
@@ -12,29 +11,33 @@ class StreamerService:
     """
 
     def __init__(self) -> None:
-        self.queues: dict[str, asyncio.Queue] = {}
+        self._queues: dict[str, set[asyncio.Queue[dict[str, Any]]]] = defaultdict(set)
+        self._lock = asyncio.Lock()
 
-    async def create_event_stream(self, run_id: str) -> EventSourceResponse:
-        """
-        Creates a new event stream for a given run ID.
-        """
-        if run_id not in self.queues:
-            self.queues[run_id] = asyncio.Queue()
+    async def add_subscriber(self, run_id: str) -> asyncio.Queue[dict[str, Any]]:
+        """Create and register a subscriber queue for a run."""
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        async with self._lock:
+            self._queues[run_id].add(queue)
+        return queue
 
-        async def event_publisher() -> Any:
-            try:
-                while True:
-                    data = await self.queues[run_id].get()
-                    yield data
-            except asyncio.CancelledError:
-                # Clean up the queue when the client disconnects
-                del self.queues[run_id]
+    async def remove_subscriber(
+        self,
+        run_id: str,
+        queue: asyncio.Queue[dict[str, Any]],
+    ) -> None:
+        """Remove a subscriber queue for a run."""
+        async with self._lock:
+            subscribers = self._queues.get(run_id)
+            if not subscribers:
+                return
+            subscribers.discard(queue)
+            if not subscribers:
+                self._queues.pop(run_id, None)
 
-        return EventSourceResponse(event_publisher())
-
-    async def push_data(self, run_id: str, data: Any) -> None:
-        """
-        Pushes data to the appropriate stream.
-        """
-        if run_id in self.queues:
-            await self.queues[run_id].put({"data": data})
+    async def publish(self, run_id: str, data: dict[str, Any]) -> None:
+        """Broadcast a payload to all subscribers for a run."""
+        async with self._lock:
+            subscribers = list(self._queues.get(run_id, set()))
+        for queue in subscribers:
+            await queue.put(data)
